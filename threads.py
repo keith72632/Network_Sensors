@@ -4,16 +4,23 @@ from datetime import datetime
 from log_files import print_log
 from time import sleep
 import sys
-import board
 import os
-import adafruit_dht
-import Adafruit_DHT
 import Adafruit_BBIO.ADC as ADC
 import Adafruit_BBIO.GPIO as GPIO
+import smbus
 
-HOST = '172.16.100.234'
+HOST = '172.16.100.227'
 #HOST = sys.argv[1]
 PORT = 8888
+
+def twos_comp(val, bits):
+    if(val & (1 << (bits - 1))) != 0:
+        val = val - (1 << bits)
+    return val
+
+def c_to_f(val):
+    return (val * 1.8) + 32
+
 def socket_thread():
     print(f'Thread {current_thread().getName()}')
     try:
@@ -48,8 +55,13 @@ def sensor_thread():
     DATA.append(value)
 
     GPIO.setup(PIN_P8_10, GPIO.OUT)
-    ADC.setup()
+    i2c_ch = 2
+    i2c_addr = 0x5a
 
+    reg_temp = 0x00
+    reg_config = 0x01
+        
+    bus = smbus.SMBus(i2c_ch)
 
     while True:
         try:
@@ -58,13 +70,32 @@ def sensor_thread():
             GPIO.output(PIN_P8_10, GPIO.LOW)
             sleep(1)
 
-            value = ADC.read_raw("P9_40")
-            #yes
-            print(f'Value = {value}')
-            DATA[9] = value
+            val = bus.read_i2c_block_data(i2c_addr, reg_config, 2)
+
+            #print(f'Value = {value}')
+            #print(f'Old Config = {val}')
+            
+            #set to 4hz sampling(CR1, CR0 = 0b10)
+            #val[1] &= 0b00111111
+            #val[1] |= (0b10 << 6)
+
+            #read CONFIG to verify change
+            #val = bus.read_i2c_block_data(i2c_addr, reg_config, 2)
+            #print(f'New Config: {val}')
+            #val = bus.read_i2c_block_data(i2c_addr, reg_temp, 2)
+
+            temp_c = (val[0] << 4) | (val[1] >> 4)
+            temp_c = str(temp_c)
+
+            temp_c = f'{temp_c[:2]}.{temp_c[2:]}'
+            temp_c = float(temp_c)
+            temp_f = c_to_f(temp_c)
+            
+            DATA[9] = temp_f
+            print(temp_f)
 
             f = open(FILE_NAME, "a")
-            msg = f'Value: {value} read at {datetime.now()}\n'
+            msg = f'Value: {temp_f} read at {datetime.now()}\n'
             f.write(msg)
             f.close()
 
@@ -79,5 +110,7 @@ def sensor_thread():
         except RuntimeError as e:
             print('Runtime error')
             print(e)
-            pass
+            f = open('errors.txt', 'a')
+            f.write(f'Runtime error {e}')
+            break
 
