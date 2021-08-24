@@ -50,7 +50,7 @@ def sensor_thread():
     PIN_P8_10 = "P8_10"
     sensor_sig = "P8_11"
     print(f'Thread {current_thread().getName()}')
-    DATA = [11, 22, 33, 44, 55, 66, 77, 88, 99]
+    DATA = [11, 22, 33, 44, 55, 66, 77, 88, 99, 80]
     value = 1.1
     DATA.append(value)
 
@@ -91,8 +91,7 @@ def sensor_thread():
             temp_c = float(temp_c)
             temp_f = c_to_f(temp_c)
             
-            DATA[9] = temp_f
-            print(temp_f)
+            DATA[0] = temp_f
 
             f = open(FILE_NAME, "a")
             msg = f'Value: {temp_f} read at {datetime.now()}\n'
